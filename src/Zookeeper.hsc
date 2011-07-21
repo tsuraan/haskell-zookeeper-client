@@ -86,7 +86,7 @@ createAcl   :: String -> String -> Word32 -> Acl
 init        :: String -> WatcherFunc -> Int -> IO ZHandle
 close       :: ZHandle -> IO ()
 
-recvTimeout :: ZHandle -> IO Int
+recvTimeout :: ZHandle -> IO Word32
 state       :: ZHandle -> IO State
 
 create      :: ZHandle -> String -> Maybe String ->
@@ -125,20 +125,20 @@ foreign import ccall unsafe
 
 foreign import ccall unsafe
   "zookeeper.h zookeeper_close" zookeeper_close ::
-  Ptr ZHBlob -> IO Int
+  Ptr ZHBlob -> IO Word32
 
 foreign import ccall unsafe
   "zookeeper.h zoo_recv_timeout" zoo_recv_timeout ::
-  Ptr ZHBlob -> IO Int
+  Ptr ZHBlob -> IO Word32
 
 foreign import ccall unsafe
   "zookeeper.h zoo_state" zoo_state ::
-  Ptr ZHBlob -> IO Int
+  Ptr ZHBlob -> IO Word32
 
 foreign import ccall unsafe
   "zookeeper.h zoo_create" zoo_create ::
   Ptr ZHBlob -> CString -> CString -> Int -> Ptr AclsBlob ->
-  Int -> CString -> Int -> IO Int
+  Int -> CString -> Int -> IO Word32
 
 foreign import ccall safe "zookeeper.h &ZOO_OPEN_ACL_UNSAFE"
    zoo_open_acl_unsafe_ptr :: Ptr AclsBlob
@@ -151,36 +151,36 @@ foreign import ccall safe "zookeeper.h &ZOO_CREATOR_ALL_ACL"
 
 foreign import ccall unsafe
   "zookeeper.h zoo_delete" zoo_delete ::
-  Ptr ZHBlob -> CString -> Int -> IO Int
+  Ptr ZHBlob -> CString -> Int -> IO Word32
 
 foreign import ccall unsafe
   "zookeeper.h zoo_exists" zoo_exists ::
-  Ptr ZHBlob -> CString -> Int -> Ptr StatBlob -> IO Int
+  Ptr ZHBlob -> CString -> Int -> Ptr StatBlob -> IO Word32
 
 foreign import ccall unsafe
   "zookeeper.h zoo_get" zoo_get ::
   Ptr ZHBlob -> CString -> Int -> CString ->
-  Ptr Int -> Ptr StatBlob -> IO Int
+  Ptr Int -> Ptr StatBlob -> IO Word32
 
 foreign import ccall unsafe
   "zookeeper.h zoo_set" zoo_set ::
-  Ptr ZHBlob -> CString -> CString -> Int -> Int -> IO Int
+  Ptr ZHBlob -> CString -> CString -> Int -> Int -> IO Word32
 
 foreign import ccall unsafe
   "zookeeper.h zoo_get_children" zoo_get_children ::
-  Ptr ZHBlob -> CString -> Int -> VoidPtr -> IO Int
+  Ptr ZHBlob -> CString -> Int -> VoidPtr -> IO Word32
 
 foreign import ccall unsafe
   "zookeeper.h zoo_get_acl" zoo_get_acl ::
-  Ptr ZHBlob -> CString -> Ptr AclsBlob -> Ptr StatBlob -> IO Int
+  Ptr ZHBlob -> CString -> Ptr AclsBlob -> Ptr StatBlob -> IO Word32
 
 foreign import ccall unsafe
   "zookeeper.h zoo_set_acl" zoo_set_acl ::
-  Ptr ZHBlob -> CString -> Int -> Ptr AclsBlob -> IO Int
+  Ptr ZHBlob -> CString -> Int -> Ptr AclsBlob -> IO Word32
 
 foreign import ccall unsafe
   "zookeeper.h is_unrecoverable" is_unrecoverable ::
-  Ptr ZHBlob -> IO Int
+  Ptr ZHBlob -> IO Word32
 
 foreign import ccall unsafe
   "zookeeper.h zoo_set_debug_level" zoo_set_debug_level ::
@@ -368,7 +368,7 @@ get zh path watch =
               zoo_get zhPtr pathPtr (watchFlag watch) buf bufLen statPtr
             resultLen <- peek bufLen
             stat <- copyStat statPtr
-            if resultLen == 4294967295
+            if resultLen == fromIntegral (-1 :: Word32)
               then
                 return (Nothing, stat)
               else do
