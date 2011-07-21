@@ -1,5 +1,6 @@
 module Zookeeper.LionTamer
 ( LionTamer(..)
+, LionCallback(..)
 , init
 , exists
 , get
