@@ -12,13 +12,15 @@ Library
   Ghc-Options: -threaded -O2
   Extra-Libraries: zookeeper_mt
   Build-Depends: base >= 4 && < 5
+               , containers
   hs-source-dirs: src
-  Exposed-modules: Zookeeper
+  Exposed-modules: Zookeeper, Zookeeper.LionTamer
 
 Executable ZooClient
   Ghc-Options: -threaded -O2
   Extra-Libraries: zookeeper_mt
   Build-Depends: base >= 4 && < 5
                , zookeeper
+               , containers
   hs-source-dirs: src
   Main-is: ZooClient.hs
