@@ -51,6 +51,7 @@ get lt path cb@(GetCb _ _) = do
 get lt path NoCb = Zoo.get (zHandle lt) path Zoo.NoWatch
 get _lt _path _ = error "get callback must be an instance of GetCb"
 
+getChildren :: LionTamer -> String -> LionCallback -> IO [String]
 getChildren lt path cb@(ChildCb _ _) = do
   _ <- IORef.atomicModifyIORef (callbacks lt)
                                (\m -> (Map.insertWith (++) path [cb] m, ()))
