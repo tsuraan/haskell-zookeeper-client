@@ -1,16 +1,19 @@
 
 {-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Zookeeper (
   init, close,
   recvTimeout, state, isUnrecoverable, setDebugLevel,
-  create, delete, exists, get, getChildren, set,
+  create, delete, exists, get, get', getChildren, set,
   getAcl, setAcl,
   defaultCreateMode, createAcl,
   WatcherFunc, State(..), Watch(..), LogLevel(..),
   EventType(..), CreateMode(..), Acl(..), Acls(..), Stat(..),
   ZHandle(..)) where
 
+import Control.Exception.Base (try)
+import System.IO.Error (IOError)
 import Prelude hiding (init)
 
 import Data.Bits
@@ -95,6 +98,7 @@ create      :: ZHandle -> String -> Maybe String ->
 delete      :: ZHandle -> String -> Int -> IO ()
 exists      :: ZHandle -> String -> Watch -> IO (Maybe Stat)
 get         :: ZHandle -> String -> Watch -> IO (Maybe String, Stat)
+get'        :: ZHandle -> String -> Watch -> IO (Maybe (Maybe String, Stat))
 getChildren :: ZHandle -> String -> Watch -> IO [String]
 set         :: ZHandle -> String -> Maybe String -> Int -> IO ()
 
@@ -374,6 +378,12 @@ get zh path watch =
               else do
                 bufStr <- peekCStringLen (buf, resultLen)
                 return (Just bufStr, stat))))))
+
+get' zh path watch = do 
+  res <- try $ get zh path watch
+  case res of
+    Left (e :: IOError) -> return Nothing
+    Right a -> return $ Just a
 
 getChildren zh path watch =
   withForeignPtr zh (\zhPtr ->
