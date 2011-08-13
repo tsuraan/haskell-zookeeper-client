@@ -5,6 +5,7 @@ module Zookeeper.LionTamer
 , exists
 , get
 , getChildren
+, remWatch
 ) where
 
 import qualified Zookeeper as Zoo
@@ -58,6 +59,21 @@ getChildren lt path cb@(ChildCb _ _) = do
 getChildren lt path NoCb = Zoo.getChildren (zHandle lt) path Zoo.NoWatch
 getChildren _lt _path _ = error "getChildren callback must be a ChildCb"
 
+remWatch :: LionTamer -> String -> Int -> IO ()
+remWatch lt path id = do
+  IORef.atomicModifyIORef (callbacks lt) (\m -> (Map.alter trunc path m, ()))
+  where
+  trunc Nothing = Nothing
+  trunc (Just elems) =
+    case filter pred elems of
+      [] -> Nothing
+      ls -> Just ls
+
+  pred (ExistsCb id' _) | id' == id = False
+  pred (GetCb id' _)    | id' == id = False
+  pred (ChildCb id' _)  | id' == id = False
+  pred _ = True
+
 eventWatcher :: IORef (Map String [LionCallback])
              -> Zoo.ZHandle
              -> Zoo.EventType
@@ -72,21 +88,16 @@ eventWatcher cbsRef zh et st path = do
       case et of
         Zoo.Created ->
           statFn forPath
-        Zoo.Deleted ->
+        Zoo.Deleted -> do
           statFn forPath
+          getFn forPath
         Zoo.Changed -> do
-          _ <- forkIO $ do
-            (value, stat) <- Zoo.get zh path Zoo.Watch
-            sequence_ [fn path et value stat | GetCb _ fn <- forPath]
-          return ()
-        Zoo.Child -> do
-          _ <- forkIO $ do
-            children <- Zoo.getChildren zh path Zoo.Watch
-            sequence_ [fn path et children | ChildCb _ fn <- forPath]
-          return ()
+          statFn forPath
+          getFn forPath
+        Zoo.Child -> 
+          childFn forPath
         _ ->
           return ()
-
   where
 
   statFn forPath = do
@@ -95,3 +106,18 @@ eventWatcher cbsRef zh et st path = do
       sequence_ [fn path et mStat | ExistsCb _ fn <- forPath]
     return ()
 
+  getFn forPath = do
+    _ <- forkIO $ do
+      mRes <- Zoo.get' zh path Zoo.Watch
+      case mRes of
+        Nothing ->
+          return ()
+        Just (value, stat) -> do
+          sequence_ [fn path et value stat | GetCb _ fn <- forPath]
+    return ()
+
+  childFn forPath = do
+    _ <- forkIO $ do
+      children <- Zoo.getChildren zh path Zoo.Watch
+      sequence_ [fn path et children | ChildCb _ fn <- forPath]
+    return ()
