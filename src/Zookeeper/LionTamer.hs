@@ -1,5 +1,6 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module Zookeeper.LionTamer
-( LionTamer(..)
+( LionTamer
 , LionCallback(..)
 , init
 , exists
@@ -8,6 +9,7 @@ module Zookeeper.LionTamer
 , remWatch
 ) where
 
+import           Data.ByteString ( ByteString )
 import qualified Zookeeper as Zoo
 import qualified Data.IORef as IORef
 import           Data.IORef (IORef)
@@ -15,22 +17,33 @@ import qualified Data.Map as Map
 import           Data.Map (Map)
 import           Control.Concurrent (forkIO)
 import           Prelude hiding (init)
+import           Control.Exception ( tryJust )
+import           Data.Int (Int32)
 
 data LionCallback
   = ExistsCb Int (String -> Zoo.EventType -> (Maybe Zoo.Stat) -> IO ())
-  | GetCb Int (String -> Zoo.EventType -> (Maybe String) -> Zoo.Stat -> IO ())
+  | GetCb Int (String -> Zoo.EventType -> (Maybe ByteString) -> Zoo.Stat -> IO ())
   | ChildCb Int (String -> Zoo.EventType -> [String] -> IO ())
   | NoCb
 
 data LionTamer = LionTamer { zHandle :: Zoo.ZHandle
-                           , callbacks :: IORef (Map String [LionCallback])
+                           , callbacks  :: IORef (Map String [LionCallback])
+                           , ephemerals :: IORef [(String, Bool, IO ())]
                            }
 
-init :: String -> Int -> IO LionTamer
+init :: String -> Int32 -> IO LionTamer
 init connStr timeout = do
-  dm <- IORef.newIORef Map.empty
-  zh <- Zoo.init connStr (eventWatcher dm) timeout
-  return $ LionTamer zh dm
+  callbacks <- IORef.newIORef Map.empty
+  ephems    <- IORef.newIORef []
+  let cbfn   = Just $ eventWatcher callbacks ephems
+  zh        <- Zoo.init connStr cbfn timeout
+  return $ LionTamer zh callbacks ephems
+
+addEphemeral :: LionTamer -> String -> Bool -> IO () -> IO ()
+addEphemeral lt path isSequential errBack = do
+  IORef.modifyIORef (ephemerals lt)
+                    ((path, isSequential, errBack):)
+  --zkEphemeral (zHandle lt) path isSequential errBack
 
 exists :: LionTamer -> String -> LionCallback -> IO (Maybe Zoo.Stat)
 exists lt path cb@(ExistsCb _ _) = do
@@ -42,7 +55,7 @@ exists lt path NoCb = Zoo.exists (zHandle lt) path Zoo.NoWatch
 exists _lt _path _ = error "exists callback must be an instance of ExistsCb"
 
 
-get :: LionTamer -> String -> LionCallback -> IO (Maybe String, Zoo.Stat)
+get :: LionTamer -> String -> LionCallback -> IO (Maybe ByteString, Zoo.Stat)
 get lt path cb@(GetCb _ _) = do
   _ <- IORef.atomicModifyIORef (callbacks lt)
                                (\m -> (Map.insertWith (++) path [cb] m, ()))
@@ -76,12 +89,13 @@ remWatch lt path id = do
   pred _ = True
 
 eventWatcher :: IORef (Map String [LionCallback])
+             -> IORef [(String, Bool, IO ())]
              -> Zoo.ZHandle
              -> Zoo.EventType
              -> Zoo.State
              -> String
              -> IO ()
-eventWatcher cbsRef zh et st path = do
+eventWatcher cbsRef ephRef zh et st path = do
   cbs <- IORef.readIORef cbsRef
   case Map.lookup path cbs of
     Nothing -> return ()
@@ -97,6 +111,9 @@ eventWatcher cbsRef zh et st path = do
           getFn forPath
         Zoo.Child -> 
           childFn forPath
+        Zoo.Event (-1) ->
+          if st == Zoo.Connected then return () -- reEstablish zh cbsRef
+                                 else return ()
         _ ->
           return ()
   where
@@ -109,11 +126,12 @@ eventWatcher cbsRef zh et st path = do
 
   getFn forPath = do
     _ <- forkIO $ do
-      mRes <- Zoo.get' zh path Zoo.Watch
+      mRes <- tryJust (\e -> Just (e :: Zoo.ZooError))
+                      (Zoo.get zh path Zoo.Watch)
       case mRes of
-        Nothing ->
+        Left _ ->
           return ()
-        Just (value, stat) -> do
+        Right (value, stat) -> do
           sequence_ [fn path et value stat | GetCb _ fn <- forPath]
     return ()
 
