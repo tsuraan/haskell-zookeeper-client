@@ -16,6 +16,7 @@ Library
                ,   bytestring == 0.9.*
   hs-source-dirs:  src
   Exposed-modules: Zookeeper, Zookeeper.LionTamer
+  Other-modules:   Zookeeper.LionTamer.Types
   Extensions:      DeriveDataTypeable
 
 Executable ZooClient

@@ -6,4 +6,5 @@ Zookeeper.hs
 Zookeeper_stub.*
 #*
 .#*
+*.swp
 /dist/
