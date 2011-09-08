@@ -12,6 +12,7 @@ module Zookeeper.LionTamer
 , exists
 , watchGet
 , get
+, getChildren
 , watchChildren
 , remWatch
 ) where
@@ -138,6 +139,11 @@ watchGet lt path cb@(GetCb _ fn) = do
     in ( lt_ { T.callbacks = Map.insertWith (++) path [T.LionGet cb] oldCbs }
        , T.zHandle lt_)
 
+getChildren :: LionTamerR -> String -> IO [String]
+getChildren lt path =
+  catch (do zh <- T.zHandle `fmap` IORef.readIORef lt
+            Zoo.getChildren zh path Zoo.NoWatch)
+        (\(_e :: Zoo.ZooError) -> return [])
 
 watchChildren :: LionTamerR -> String -> ChildCb-> IO ()
 watchChildren lt path cb@(ChildCb _ fn) = do
