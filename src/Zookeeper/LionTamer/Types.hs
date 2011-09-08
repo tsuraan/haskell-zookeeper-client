@@ -38,7 +38,7 @@ data LionCallback = LionGet GetCb
 data LionTamer = LionTamer { zHandle    :: Zoo.ZHandle
                            , callbacks  :: Map String [LionCallback]
                            , ephemerals :: [EphemRecord]
-                           , connStr    :: String
+                           , connStr    :: Maybe String
                            , timeout    :: Int32
                            }
 
