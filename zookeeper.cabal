@@ -1,5 +1,5 @@
 Name:           zookeeper
-Version:        0.0.1
+Version:        0.0.2
 Description:    Haskell bindings for zookeeper
 License:        OtherLicense
 License-file:   LICENSE
@@ -11,16 +11,22 @@ Cabal-Version:  >=1.8
 Library
   Ghc-Options:     -threaded -O2 -Wall
   Extra-Libraries: zookeeper_mt
-  Build-Depends:   base >= 4 && < 5, bytestring == 0.9.*
-  Hs-source-dirs:  src
-  Exposed-modules: Zookeeper
+  Build-Depends:   base >= 4 && < 5
+               ,   containers
+               ,   bytestring == 0.9.*
+  hs-source-dirs:  src
+  Exposed-modules: Zookeeper, Zookeeper.LionTamer
+  Other-modules:   Zookeeper.LionTamer.Types
   Extensions:      DeriveDataTypeable
 
 Executable ZooClient
   Ghc-Options:     -threaded -O2 -Wall
   Extra-Libraries: zookeeper_mt
-  Build-Depends:   base >= 4 && < 5, bytestring == 0.9.*
-  Hs-source-dirs:  src
+  Build-Depends:   base >= 4 && < 5
+               ,   zookeeper
+               ,   containers
+               ,   bytestring == 0.9.*
+  hs-source-dirs:  src
   Main-is:         ZooClient.hs
   Other-modules:   Zookeeper
   Extensions:      DeriveDataTypeable
