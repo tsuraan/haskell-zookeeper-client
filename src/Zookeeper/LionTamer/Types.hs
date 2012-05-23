@@ -14,7 +14,6 @@ import qualified Zookeeper as Zoo
 
 import Data.ByteString ( ByteString )
 import Data.IORef (IORef)
-import Data.Int (Int32)
 import Data.Map (Map)
 
 data ExistsCb = ExistsCb Int (String -> (Maybe Zoo.Stat) -> IO ()) 
@@ -39,7 +38,7 @@ data LionTamer = LionTamer { zHandle    :: Zoo.ZHandle
                            , callbacks  :: Map String [LionCallback]
                            , ephemerals :: [EphemRecord]
                            , connStr    :: Maybe String
-                           , timeout    :: Int32
+                           , timeout    :: Int
                            }
 
 type LionTamerR = IORef LionTamer

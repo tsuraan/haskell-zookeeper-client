@@ -4,6 +4,7 @@ module Zookeeper.LionTamer
 , ExistsCb(..)
 , ChildCb(..)
 , GetCb(..)
+, zHandle
 , init
 , close
 , create
@@ -28,11 +29,13 @@ import Control.Concurrent ( forkIO )
 import Control.Exception ( catch, catches, tryJust, Handler , IOException
                          , Handler(..), throwIO )
 import Data.ByteString ( ByteString )
-import Data.Int (Int32)
 
 import Prelude hiding ( init, catch )
 
-init :: String -> Int32 -> IO LionTamerR
+zHandle :: LionTamerR -> IO Zoo.ZHandle
+zHandle lt = T.zHandle `fmap` IORef.readIORef lt
+
+init :: String -> Int -> IO LionTamerR
 init connStr timeout = do
   zh        <- Zoo.init connStr Nothing timeout
   lt <- IORef.newIORef $ T.LionTamer { T.zHandle    = zh
@@ -65,7 +68,7 @@ create :: LionTamerR
        -> Zoo.CreateMode
        -> IO String
 create lt p v a m = do
-  zh <- T.zHandle `fmap` IORef.readIORef lt
+  zh <- zHandle lt
   Zoo.create zh p v a m
 
 addEphemeralNode :: LionTamerR
@@ -91,8 +94,7 @@ addEphemeralNode lt path value isSequential succBack errBack = do
 
 exists :: LionTamerR -> String -> IO (Maybe Zoo.Stat)
 exists lt path = do
-  (T.zHandle `fmap` IORef.readIORef lt)
-    >>= (\zh -> Zoo.exists zh path Zoo.NoWatch)
+  zHandle lt >>= (\zh -> Zoo.exists zh path Zoo.NoWatch)
   
 
 watchExists :: LionTamerR -> String -> ExistsCb -> IO ()
@@ -115,7 +117,7 @@ watchExists lt path cb@(ExistsCb _id fn) = do
 
 get :: LionTamerR -> String -> IO (Maybe ByteString, Maybe Zoo.Stat)
 get lt path =
-  catch (do zh <- T.zHandle `fmap` IORef.readIORef lt
+  catch (do zh <- zHandle lt
             (mBS, st) <- Zoo.get zh path Zoo.NoWatch
             return (mBS, Just st))
         (\(_e :: Zoo.ZooError) -> return (Nothing, Nothing))
@@ -141,7 +143,7 @@ watchGet lt path cb@(GetCb _ fn) = do
 
 getChildren :: LionTamerR -> String -> IO [String]
 getChildren lt path =
-  catch (do zh <- T.zHandle `fmap` IORef.readIORef lt
+  catch (do zh <- zHandle lt
             Zoo.getChildren zh path Zoo.NoWatch)
         (\(_e :: Zoo.ZooError) -> return [])
 
